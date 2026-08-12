@@ -1,4 +1,5 @@
 import localFont from 'next/font/local';
+import QueryProvider from '@/components/QueryProvider';
 import './globals.css';
 
 const rokafSans = localFont({
@@ -25,7 +26,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="ko" data-scroll-behavior="smooth">
-      <body className={rokafSans.variable}>{children}</body>
+      <body className={rokafSans.variable}>
+        <QueryProvider>{children}</QueryProvider>
+      </body>
     </html>
   );
 }

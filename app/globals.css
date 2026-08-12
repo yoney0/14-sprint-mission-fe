@@ -220,8 +220,53 @@ body {
 }
 
 .market-login {
-  width: 5.5rem;
+  min-width: 5.5rem;
+  padding: 0 1rem;
+  gap: 0.375rem;
   font-size: 1rem;
+}
+
+.market-profile {
+  min-width: 0;
+  max-width: 13rem;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: #374151;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.market-profile > img,
+.market-profile__fallback,
+.market-profile-loading {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 2.25rem;
+  border-radius: 50%;
+  background: #e5e7eb;
+}
+
+.market-profile > img {
+  object-fit: cover;
+}
+
+.market-profile__fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+}
+
+.market-profile > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market-profile-loading {
+  animation: market-pulse 1.3s ease-in-out infinite;
 }
 
 .market-login:hover,
@@ -308,6 +353,16 @@ body {
   transform: rotate(45deg);
 }
 
+.market-search-form__lucide {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  z-index: 1;
+  color: #9ca3af;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
 .market-search-form input {
   width: 100%;
   height: 100%;
@@ -334,6 +389,18 @@ body {
 .market-sort-control {
   position: relative;
   flex-shrink: 0;
+}
+
+.market-sort-select {
+  width: 8.125rem;
+  height: 2.625rem;
+  padding: 0 2rem 0 1rem;
+  border: 0.0625rem solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #1f2937;
+  font-size: 1rem;
+  font-weight: 500;
 }
 
 .market-sort-button {
@@ -459,7 +526,8 @@ body {
   gap: 0.5rem;
 }
 
-.market-pagination__button {
+.market-pagination__button,
+.market-pagination button {
   width: 2.5rem;
   height: 2.5rem;
   border: 0.0625rem solid #e5e7eb;
@@ -473,10 +541,60 @@ body {
   font-weight: 600;
 }
 
-.market-pagination__button.is-active {
+.market-pagination__button.is-active,
+.market-pagination button.is-active {
   border-color: #3692ff;
   background: #3692ff;
   color: #fff;
+}
+
+.market-pagination button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.market-query-state,
+.product-detail-state,
+.product-comment-state {
+  min-height: 12rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: #6b7280;
+  text-align: center;
+}
+
+.market-query-state.is-error,
+.product-detail-state.is-error,
+.product-comment-state.is-error {
+  flex-direction: column;
+  color: #dc2626;
+}
+
+.market-query-state button,
+.product-detail-state button,
+.product-comment-state button {
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 0.5rem;
+  background: #3692ff;
+  color: #fff;
+  font-weight: 600;
+}
+
+.loading-spinner {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 1.5rem;
+  border: 0.1875rem solid #dbeafe;
+  border-top-color: #3692ff;
+  border-radius: 50%;
+  animation: loading-spin 0.8s linear infinite;
+}
+
+@keyframes loading-spin {
+  to { transform: rotate(360deg); }
 }
 
 .market-pagination__button:disabled,
@@ -1703,6 +1821,15 @@ body {
     @apply border-error focus:border-error;
   }
 
+  .auth-status {
+    min-height: 12rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    font-size: 0.9375rem;
+  }
+
   @media (min-width: 46.5rem) {
     .content-width {
       padding-inline: 1.5rem;
@@ -2822,6 +2949,21 @@ body {
   flex: 1 0 auto;
 }
 
+.product-back-link {
+  width: max-content;
+  margin-bottom: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: #4b5563;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.product-back-link:hover {
+  color: #3692ff;
+}
+
 .registration-main {
   padding: 2.5rem 0 8.5rem;
 }
@@ -3070,6 +3212,57 @@ body {
   padding-top: 0.5rem;
 }
 
+.product-detail__topline {
+  min-height: 2.25rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.product-action-menu-wrap {
+  position: relative;
+}
+
+.product-more-button {
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+}
+
+.product-action-menu {
+  position: absolute;
+  top: 2.5rem;
+  right: 0;
+  z-index: 10;
+  width: 8rem;
+  padding: 0.375rem;
+  border: 0.0625rem solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 0.75rem 2rem rgba(17, 24, 39, 0.12);
+}
+
+.product-action-menu button {
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 0.625rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.375rem;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.product-action-menu button:hover {
+  background: #f3f4f6;
+}
+
 .product-detail__date {
   margin: 0 0 0.75rem;
   color: #9ca3af;
@@ -3091,6 +3284,16 @@ body {
   font-size: 1.75rem;
   font-weight: 700;
   line-height: 2.5rem;
+}
+
+.product-detail__seller {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6b7280;
+  font-size: 0.9375rem;
+  font-weight: 600;
 }
 
 .product-detail__description {
@@ -3122,6 +3325,251 @@ body {
   font-weight: 600;
 }
 
+.product-favorite-button {
+  min-width: 7.5rem;
+  height: 2.875rem;
+  margin-top: 2rem;
+  padding: 0 1rem;
+  border: 0.0625rem solid #d1d5db;
+  border-radius: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: #fff;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.product-favorite-button.is-active {
+  border-color: #f87171;
+  color: #ef4444;
+}
+
+.product-favorite-button:disabled {
+  opacity: 0.55;
+}
+
+.product-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.product-edit-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.product-edit-form small {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.product-edit-form input,
+.product-edit-form textarea,
+.product-comment-form textarea,
+.product-comment-edit textarea {
+  width: 100%;
+  border: 0.0625rem solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #f9fafb;
+  color: #1f2937;
+  outline: none;
+}
+
+.product-edit-form input {
+  height: 2.875rem;
+  padding: 0 0.875rem;
+}
+
+.product-edit-form textarea {
+  min-height: 7rem;
+  padding: 0.875rem;
+  resize: vertical;
+}
+
+.product-edit-form input:focus,
+.product-edit-form textarea:focus,
+.product-comment-form textarea:focus,
+.product-comment-edit textarea:focus {
+  border-color: #3692ff;
+  background: #fff;
+}
+
+.product-edit-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.625rem;
+}
+
+.product-edit-form__actions button,
+.product-comment-edit button {
+  height: 2.625rem;
+  padding: 0 1rem;
+  border-radius: 0.5rem;
+  background: #f3f4f6;
+  color: #374151;
+  font-weight: 600;
+}
+
+.product-edit-form__actions .is-primary,
+.product-comment-edit button[type='submit'] {
+  background: #3692ff;
+  color: #fff;
+}
+
+.product-comments {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 0.0625rem solid #e5e7eb;
+}
+
+.product-comments h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+
+.product-comment-form {
+  position: relative;
+  margin-top: 1.25rem;
+}
+
+.product-comment-form textarea {
+  min-height: 6.5rem;
+  padding: 1rem 6.5rem 1rem 1rem;
+  resize: vertical;
+}
+
+.product-comment-form > button {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  min-width: 4.75rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  background: #3692ff;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.product-comment-form > button:disabled {
+  background: #9ca3af;
+}
+
+.product-comment-state {
+  min-height: 8rem;
+}
+
+.product-comment-list {
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.product-comment-list > li {
+  min-width: 0;
+  padding: 1.25rem 0;
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  gap: 0.875rem;
+  border-bottom: 0.0625rem solid #e5e7eb;
+}
+
+.product-comment__avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
+.product-comment__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-comment__body {
+  min-width: 0;
+}
+
+.product-comment__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.product-comment__meta strong {
+  color: #374151;
+  font-size: 0.9375rem;
+}
+
+.product-comment__meta time {
+  color: #9ca3af;
+  font-size: 0.75rem;
+}
+
+.product-comment__body > p {
+  margin: 0.5rem 0 0;
+  color: #4b5563;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.product-comment__actions {
+  display: flex;
+  gap: 0.125rem;
+}
+
+.product-comment__actions button {
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+}
+
+.product-comment__actions button:hover {
+  color: #374151;
+}
+
+.product-comment-edit {
+  margin-top: 0.625rem;
+}
+
+.product-comment-edit textarea {
+  min-height: 5rem;
+  padding: 0.75rem;
+  resize: vertical;
+}
+
+.product-comment-edit > div {
+  margin-top: 0.5rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.product-comment-empty {
+  margin: 2.5rem 0;
+  color: #9ca3af;
+  text-align: center;
+}
+
 @media (max-width: 74.9375rem) {
   .registration-main {
     padding: 2rem 0 8.5rem;
@@ -3138,6 +3586,10 @@ body {
   .product-detail {
     grid-template-columns: 22rem minmax(0, 1fr);
     gap: 2rem;
+  }
+
+  .market-header__inner {
+    padding: 0 1.5rem;
   }
 
   .registration-title-row h1 {
@@ -3164,6 +3616,43 @@ body {
   .product-detail {
     grid-template-columns: 1fr;
     gap: 1.5rem;
+  }
+
+  .market-header__inner {
+    padding: 0 1rem;
+  }
+
+  .market-header__left {
+    gap: 1rem;
+  }
+
+  .market-logo__text,
+  .market-profile > span:last-child,
+  .market-login svg {
+    display: none;
+  }
+
+  .market-nav-link {
+    font-size: 0.9375rem;
+  }
+
+  .market-login {
+    min-width: 4rem;
+    padding: 0 0.75rem;
+  }
+
+  .product-comment-list > li {
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+  }
+
+  .product-comment__avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .product-comment__actions {
+    grid-column: 2;
+    justify-self: end;
   }
 
   .product-detail h1 {

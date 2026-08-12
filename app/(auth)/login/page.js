@@ -1,7 +1,5 @@
-import LoginForm from '@/components/LoginForm';
-
-export const metadata = { title: '로그인' };
+import { redirect } from 'next/navigation';
 
 export default function LoginPage() {
-  return <LoginForm />;
+  redirect('/signin');
 }

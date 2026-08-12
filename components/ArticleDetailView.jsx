@@ -1,11 +1,14 @@
 'use client';
 
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ArticleComments from './ArticleComments';
 import AlertModal from './AlertModal';
 import { deleteArticle, getArticle } from '@/lib/client-api';
+import { getApiErrorMessage } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-keys';
 
 function formatDate(value) {
   if (!value) return '';
@@ -18,44 +21,32 @@ function formatDate(value) {
 
 export default function ArticleDetailView({ articleId }) {
   const router = useRouter();
-  const [article, setArticle] = useState(null);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const queryClient = useQueryClient();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
-  useEffect(() => {
-    let ignore = false;
-    getArticle(articleId)
-      .then((data) => {
-        if (!ignore) setArticle(data);
-      })
-      .catch((requestError) => {
-        if (!ignore) setError(requestError.message || '게시글을 불러오지 못했습니다.');
-      })
-      .finally(() => {
-        if (!ignore) setIsLoading(false);
-      });
-    return () => { ignore = true; };
-  }, [articleId]);
-
-  async function removeArticle() {
-    setIsDeleting(true);
-    setError('');
-    try {
-      await deleteArticle(articleId);
+  const articleQuery = useQuery({
+    queryKey: queryKeys.articles.detail(articleId),
+    queryFn: () => getArticle(articleId),
+    staleTime: 60_000,
+  });
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteArticle(articleId),
+    onSuccess() {
+      queryClient.removeQueries({ queryKey: queryKeys.articles.detail(articleId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
       router.push('/free-board?notice=deleted');
-      router.refresh();
-    } catch (requestError) {
-      setError(requestError.message || '게시글 삭제에 실패했습니다.');
-      setIsDeleting(false);
-    }
-  }
+    },
+  });
+  const article = articleQuery.data;
+  const error = articleQuery.isError
+    ? getApiErrorMessage(articleQuery.error, '게시글을 불러오지 못했습니다.')
+    : deleteMutation.isError
+      ? getApiErrorMessage(deleteMutation.error, '게시글 삭제에 실패했습니다.')
+      : '';
 
   return (
     <main className="article-detail-main">
-      {isLoading ? <p className="board-status">게시글을 불러오는 중입니다.</p> : null}
+      {articleQuery.isPending ? <p className="board-status">게시글을 불러오는 중입니다.</p> : null}
       {error ? <p className="article-submit-error" role="alert">{error}</p> : null}
 
       {article ? (
@@ -79,9 +70,9 @@ export default function ArticleDetailView({ articleId }) {
                       setIsMenuOpen(false);
                       setIsDeleteModalOpen(true);
                     }}
-                    disabled={isDeleting}
+                    disabled={deleteMutation.isPending}
                   >
-                    {isDeleting ? '삭제 중' : '삭제하기'}
+                    {deleteMutation.isPending ? '삭제 중' : '삭제하기'}
                   </button>
                 </div>
               ) : null}
@@ -112,9 +103,9 @@ export default function ArticleDetailView({ articleId }) {
         message="게시글과 등록된 댓글이 모두 삭제되며 복구할 수 없습니다."
         variant="danger"
         confirmLabel="삭제"
-        isPending={isDeleting}
+        isPending={deleteMutation.isPending}
         onCancel={() => setIsDeleteModalOpen(false)}
-        onConfirm={removeArticle}
+        onConfirm={() => deleteMutation.mutate()}
       />
     </main>
   );

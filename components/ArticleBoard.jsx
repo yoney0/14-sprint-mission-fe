@@ -1,11 +1,14 @@
 'use client';
 
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SafeImage from './SafeImage';
 import AlertMessage from './AlertMessage';
 import { getArticleList } from '@/lib/client-api';
+import { getApiErrorMessage } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-keys';
 
 const DESKTOP_PAGE_SIZE = 5;
 const MOBILE_PAGE_SIZE = 3;
@@ -108,12 +111,28 @@ export default function ArticleBoard({
   const [orderBy, setOrderBy] = useState(initialOrderBy);
   const [page, setPage] = useState(initialPage);
   const [pageSize, setPageSize] = useState(DESKTOP_PAGE_SIZE);
-  const [articles, setArticles] = useState({ list: [], totalCount: 0 });
-  const [bestArticles, setBestArticles] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [status, setStatus] = useState('');
   const [deleteNotice, setDeleteNotice] = useState(initialNotice);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const bestArticlesQuery = useQuery({
+    queryKey: queryKeys.articles.list({ page: 1, pageSize: 3, orderBy: 'recent', best: true }),
+    queryFn: () => getArticleList({ page: 1, pageSize: 3, orderBy: 'recent' }),
+    staleTime: 60_000,
+  });
+  const articleFilters = useMemo(
+    () => ({ page, pageSize, keyword, orderBy }),
+    [keyword, orderBy, page, pageSize],
+  );
+  const articlesQuery = useQuery({
+    queryKey: queryKeys.articles.list(articleFilters),
+    queryFn: () => getArticleList(articleFilters),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+  const articles = articlesQuery.data || { list: [], totalCount: 0 };
+  const bestArticles = bestArticlesQuery.data?.list || [];
+  const status = articlesQuery.isError
+    ? getApiErrorMessage(articlesQuery.error, '게시글을 불러오지 못했습니다.')
+    : '';
 
   useEffect(() => {
     if (!isSortOpen) return undefined;
@@ -140,39 +159,6 @@ export default function ArticleBoard({
     return () => mediaQuery.removeEventListener('change', updatePageSize);
   }, []);
 
-  useEffect(() => {
-    let ignore = false;
-    getArticleList({ page: 1, pageSize: 3, orderBy: 'recent' })
-      .then((data) => {
-        if (!ignore) setBestArticles(Array.isArray(data.list) ? data.list : []);
-      })
-      .catch(() => {
-        if (!ignore) setBestArticles([]);
-      });
-    return () => { ignore = true; };
-  }, []);
-
-  useEffect(() => {
-    let ignore = false;
-    getArticleList({ page, pageSize, keyword, orderBy })
-      .then((data) => {
-        if (ignore) return;
-        setArticles({
-          list: Array.isArray(data.list) ? data.list : [],
-          totalCount: Number(data.totalCount || 0),
-        });
-      })
-      .catch((error) => {
-        if (ignore) return;
-        setArticles({ list: [], totalCount: 0 });
-        setStatus(error.message || '게시글을 불러오지 못했습니다.');
-      })
-      .finally(() => {
-        if (!ignore) setIsLoading(false);
-      });
-    return () => { ignore = true; };
-  }, [keyword, orderBy, page, pageSize]);
-
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(articles.totalCount / pageSize)),
     [articles.totalCount, pageSize],
@@ -192,8 +178,6 @@ export default function ArticleBoard({
   function submitSearch(event) {
     event.preventDefault();
     const nextKeyword = searchValue.trim();
-    setIsLoading(true);
-    setStatus('');
     setKeyword(nextKeyword);
     setPage(1);
     updateUrl({ keyword: nextKeyword, page: 1 });
@@ -203,8 +187,6 @@ export default function ArticleBoard({
     setIsSortOpen(false);
     if (nextOrderBy === orderBy) return;
 
-    setIsLoading(true);
-    setStatus('');
     setOrderBy(nextOrderBy);
     setPage(1);
     updateUrl({ orderBy: nextOrderBy, page: 1 });
@@ -212,8 +194,6 @@ export default function ArticleBoard({
 
   function changePage(nextPage) {
     const safePage = Math.min(Math.max(1, nextPage), totalPages);
-    setIsLoading(true);
-    setStatus('');
     setPage(safePage);
     updateUrl({ page: safePage });
     window.scrollTo({ top: 540, behavior: 'smooth' });
@@ -230,7 +210,9 @@ export default function ArticleBoard({
       <section className="board-section" aria-labelledby="best-articles-title">
         <h1 id="best-articles-title" className="board-title">베스트 게시글</h1>
         <div className="board-best-grid">
-          {bestArticles.length
+          {bestArticlesQuery.isPending
+            ? <div className="board-empty-card">베스트 게시글을 불러오는 중입니다.</div>
+            : bestArticles.length
             ? bestArticles.map((article) => <BestArticleCard key={article.id} article={article} />)
             : <div className="board-empty-card">등록된 게시글이 없습니다.</div>}
         </div>
@@ -288,11 +270,11 @@ export default function ArticleBoard({
         </div>
 
         <p className="board-status" aria-live="polite">
-          {status || (isLoading ? '게시글을 불러오는 중입니다.' : `총 ${articles.totalCount}개 게시글`)}
+          {status || (articlesQuery.isPending ? '게시글을 불러오는 중입니다.' : `총 ${articles.totalCount}개 게시글`)}
         </p>
         <div className="board-article-list">
           {articles.list.map((article) => <ArticleRow key={article.id} article={article} />)}
-          {!isLoading && !status && !articles.list.length ? (
+          {!articlesQuery.isPending && !status && !articles.list.length ? (
             <p className="board-empty-list">검색 결과가 없습니다.</p>
           ) : null}
         </div>

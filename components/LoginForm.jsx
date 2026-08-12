@@ -1,94 +1,101 @@
 'use client';
 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import FormField from './FormField';
 import MessageModal from './MessageModal';
 import PasswordField from './PasswordField';
-import { AUTH_MESSAGES, findUserByEmail, validateEmail, validatePassword } from '@/utils/auth';
+import useRedirectAuthenticated from '@/hooks/useRedirectAuthenticated';
+import { getApiErrorMessage } from '@/lib/api-client';
+import { saveAuthTokens } from '@/lib/auth-storage';
+import { authApi } from '@/lib/panda-api';
+import { queryKeys } from '@/lib/query-keys';
 
-const initialValues = { email: '', password: '' };
+const EMAIL_ERROR = '이메일을 확인해 주세요.';
+const PASSWORD_ERROR = '비밀번호를 확인해 주세요.';
 
 export default function LoginForm() {
   const router = useRouter();
-  const [values, setValues] = useState(initialValues);
-  const [touched, setTouched] = useState({});
+  const queryClient = useQueryClient();
+  const checkingAuth = useRedirectAuthenticated();
   const [modalMessage, setModalMessage] = useState('');
-  const errors = useMemo(() => ({
-    email: validateEmail(values.email),
-    password: validatePassword(values.password),
-  }), [values]);
-  const isSubmittable = values.email.trim() && values.password.trim() && !errors.email && !errors.password;
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isValid },
+  } = useForm({ mode: 'onChange', defaultValues: { email: '', password: '' } });
+  const signInMutation = useMutation({
+    mutationFn: authApi.signIn,
+    onSuccess(data) {
+      saveAuthTokens(data);
+      queryClient.setQueryData(queryKeys.user, data.user);
+      router.replace('/items');
+    },
+    onError(error) {
+      setError('email', { type: 'server', message: EMAIL_ERROR });
+      setError('password', { type: 'server', message: PASSWORD_ERROR });
+      setModalMessage(getApiErrorMessage(error, '로그인에 실패했습니다.'));
+    },
+  });
 
-  const updateField = (name) => (event) => {
-    setValues((current) => ({ ...current, [name]: event.target.value }));
-  };
-  const touchField = (name) => () => {
-    setTouched((current) => ({ ...current, [name]: true }));
-  };
-
-  function handleSubmit(event) {
-    event.preventDefault();
-    setTouched({ email: true, password: true });
-    if (!isSubmittable) return;
-
-    const user = findUserByEmail(values.email);
-    if (!user || user.password !== values.password.trim()) {
-      setModalMessage(AUTH_MESSAGES.passwordMismatch);
-      return;
-    }
-
-    router.push('/items');
-  }
+  if (checkingAuth) return <p className="auth-status">로그인 상태를 확인하고 있습니다.</p>;
 
   return (
     <>
-      <form className="space-y-6" onSubmit={handleSubmit} noValidate>
-        <FormField id="email" label="이메일" error={touched.email ? errors.email : ''}>
+      <form className="space-y-6" onSubmit={handleSubmit((values) => signInMutation.mutate(values))} noValidate>
+        <FormField id="email" label="이메일" error={errors.email?.message}>
           <input
             id="email"
-            className={`input-field ${touched.email && errors.email ? 'input-field-error' : ''}`}
+            className={`input-field ${errors.email ? 'input-field-error' : ''}`}
             type="email"
-            value={values.email}
-            onChange={updateField('email')}
-            onBlur={touchField('email')}
             placeholder="이메일을 입력해주세요"
             autoComplete="email"
-            required
+            aria-invalid={Boolean(errors.email)}
+            {...register('email', {
+              required: EMAIL_ERROR,
+              pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: EMAIL_ERROR },
+            })}
           />
         </FormField>
 
-        <FormField id="password" label="비밀번호" error={touched.password ? errors.password : ''}>
+        <FormField id="password" label="비밀번호" error={errors.password?.message}>
           <PasswordField
             id="password"
-            value={values.password}
-            onChange={updateField('password')}
-            onBlur={touchField('password')}
             placeholder="비밀번호를 입력해주세요"
             autoComplete="current-password"
-            hasError={touched.password && errors.password}
+            aria-invalid={Boolean(errors.password)}
+            hasError={Boolean(errors.password)}
+            {...register('password', {
+              required: PASSWORD_ERROR,
+              minLength: { value: 8, message: PASSWORD_ERROR },
+            })}
           />
         </FormField>
 
-        <button className="primary-button w-full" type="submit" disabled={!isSubmittable}>로그인</button>
+        <button className="primary-button w-full" type="submit" disabled={!isValid || signInMutation.isPending}>
+          {signInMutation.isPending ? '로그인 중' : '로그인'}
+        </button>
       </form>
 
       <section className="mt-6 flex items-center justify-between rounded-lg bg-primary-50 px-6 py-4">
         <p className="font-medium text-gray-800">간편 로그인</p>
         <div className="flex gap-4">
           <a href="https://www.google.com/" target="_blank" rel="noreferrer" aria-label="Google">
-            <Image className="h-11 w-11" src="/images/Component 2@3x.png" width={43} height={43} alt="" />
+            <Image className="h-11 w-11" src="/images/Component%202%403x.png" width={43} height={43} alt="" unoptimized />
           </a>
-          <a href="https://www.kakao.com/" target="_blank" rel="noreferrer" aria-label="Kakao">
-            <Image className="h-11 w-11" src="/images/Component 3@3x.png" width={42} height={42} alt="" />
+          <a href="https://www.kakaocorp.com/page" target="_blank" rel="noreferrer" aria-label="Kakao">
+            <Image className="h-11 w-11" src="/images/Component%203%403x.png" width={42} height={42} alt="" unoptimized />
           </a>
         </div>
       </section>
 
       <p className="mt-6 text-center text-sm font-medium text-gray-800">
-        판다마켓이 처음이신가요? <Link className="text-primary underline" href="/signup">회원가입</Link>
+        판다마켓이 처음이신가요? <Link className="text-primary underline" href="/signup">회원 가입하기</Link>
       </p>
 
       <MessageModal message={modalMessage} onClose={() => setModalMessage('')} />

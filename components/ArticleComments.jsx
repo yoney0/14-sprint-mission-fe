@@ -1,5 +1,6 @@
 'use client';
 
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import {
   createArticleComment,
@@ -7,6 +8,8 @@ import {
   getArticleComments,
   patchComment,
 } from '@/lib/client-api';
+import { getApiErrorMessage } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-keys';
 import AlertMessage from './AlertMessage';
 import AlertModal from './AlertModal';
 
@@ -85,71 +88,62 @@ function CommentItem({
 }
 
 export default function ArticleComments({ articleId }) {
-  const [comments, setComments] = useState([]);
-  const [nextCursor, setNextCursor] = useState(null);
+  const queryClient = useQueryClient();
   const [commentValue, setCommentValue] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [busyId, setBusyId] = useState(null);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [deleteNotice, setDeleteNotice] = useState('');
-
-  useEffect(() => {
-    let ignore = false;
-    getArticleComments(articleId, { pageSize: 3 })
-      .then((data) => {
-        if (ignore) return;
-        setComments(data.list || []);
-        setNextCursor(data.nextCursor || null);
-      })
-      .catch((requestError) => {
-        if (!ignore) setError(requestError.message || '댓글을 불러오지 못했습니다.');
-      })
-      .finally(() => {
-        if (!ignore) setIsLoading(false);
-      });
-    return () => { ignore = true; };
-  }, [articleId]);
+  const commentsKey = queryKeys.articles.comments(articleId);
+  const commentsQuery = useInfiniteQuery({
+    queryKey: commentsKey,
+    queryFn: ({ pageParam }) => getArticleComments(articleId, { cursor: pageParam, pageSize: 3 }),
+    initialPageParam: '',
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+    staleTime: 30_000,
+  });
+  const comments = useMemo(
+    () => commentsQuery.data?.pages.flatMap((page) => page.list || []) || [],
+    [commentsQuery.data?.pages],
+  );
+  const refreshComments = () => queryClient.invalidateQueries({ queryKey: commentsKey });
+  const createMutation = useMutation({
+    mutationFn: (content) => createArticleComment(articleId, content),
+    onSuccess() { setCommentValue(''); refreshComments(); },
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({ commentId, content }) => patchComment(commentId, content),
+    onSuccess() { setEditingId(null); refreshComments(); },
+  });
+  const deleteMutation = useMutation({
+    mutationFn: deleteComment,
+    onSuccess() {
+      setOpenMenuId(null);
+      setDeleteTargetId(null);
+      setDeleteNotice('댓글이 삭제되었습니다.');
+      refreshComments();
+    },
+  });
+  const busyId = updateMutation.isPending
+    ? updateMutation.variables?.commentId
+    : deleteMutation.isPending ? deleteMutation.variables : null;
+  const requestError = commentsQuery.error || createMutation.error || updateMutation.error || deleteMutation.error;
+  const error = requestError ? getApiErrorMessage(requestError, '댓글 요청을 처리하지 못했습니다.') : '';
 
   const isSubmitDisabled = useMemo(
-    () => !commentValue.trim() || isSubmitting,
-    [commentValue, isSubmitting],
+    () => !commentValue.trim() || createMutation.isPending,
+    [commentValue, createMutation.isPending],
   );
 
-  async function submitComment(event) {
+  function submitComment(event) {
     event.preventDefault();
     if (isSubmitDisabled) return;
-
-    setError('');
-    setIsSubmitting(true);
-    try {
-      const comment = await createArticleComment(articleId, commentValue.trim());
-      setComments((current) => [comment, ...current]);
-      setCommentValue('');
-    } catch (requestError) {
-      setError(requestError.message || '댓글 등록에 실패했습니다.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    createMutation.mutate(commentValue.trim());
   }
 
-  async function saveComment(commentId, content) {
+  function saveComment(commentId, content) {
     if (!content) return;
-    setBusyId(commentId);
-    setError('');
-    try {
-      const updated = await patchComment(commentId, content);
-      setComments((current) => current.map((comment) => comment.id === commentId ? updated : comment));
-      setEditingId(null);
-    } catch (requestError) {
-      setError(requestError.message || '댓글 수정에 실패했습니다.');
-    } finally {
-      setBusyId(null);
-    }
+    updateMutation.mutate({ commentId, content });
   }
 
   useEffect(() => {
@@ -158,37 +152,10 @@ export default function ArticleComments({ articleId }) {
     return () => window.clearTimeout(timerId);
   }, [deleteNotice]);
 
-  async function removeComment() {
+  function removeComment() {
     const commentId = deleteTargetId;
     if (!commentId) return;
-    setBusyId(commentId);
-    setError('');
-    try {
-      await deleteComment(commentId);
-      setComments((current) => current.filter((comment) => comment.id !== commentId));
-      setOpenMenuId(null);
-      setDeleteTargetId(null);
-      setDeleteNotice('댓글이 삭제되었습니다.');
-    } catch (requestError) {
-      setError(requestError.message || '댓글 삭제에 실패했습니다.');
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function loadMoreComments() {
-    if (!nextCursor || isLoadingMore) return;
-    setIsLoadingMore(true);
-    setError('');
-    try {
-      const data = await getArticleComments(articleId, { cursor: nextCursor, pageSize: 3 });
-      setComments((current) => [...current, ...(data.list || [])]);
-      setNextCursor(data.nextCursor || null);
-    } catch (requestError) {
-      setError(requestError.message || '댓글을 더 불러오지 못했습니다.');
-    } finally {
-      setIsLoadingMore(false);
-    }
+    deleteMutation.mutate(commentId);
   }
 
   return (
@@ -202,15 +169,15 @@ export default function ArticleComments({ articleId }) {
             placeholder="댓글을 입력해주세요."
           />
           <button type="submit" disabled={isSubmitDisabled}>
-            {isSubmitting ? '등록 중' : '등록'}
+            {createMutation.isPending ? '등록 중' : '등록'}
           </button>
         </form>
         {error ? <p className="article-submit-error" role="alert">{error}</p> : null}
       </section>
 
       <section className="article-comments" aria-label="댓글 목록">
-        {isLoading ? <p className="board-status">댓글을 불러오는 중입니다.</p> : null}
-        {!isLoading && comments.length ? (
+        {commentsQuery.isPending ? <p className="board-status">댓글을 불러오는 중입니다.</p> : null}
+        {!commentsQuery.isPending && comments.length ? (
           <>
             {comments.map((comment) => (
               <CommentItem
@@ -232,19 +199,19 @@ export default function ArticleComments({ articleId }) {
                 }}
               />
             ))}
-            {nextCursor ? (
+            {commentsQuery.hasNextPage ? (
               <button
                 className="article-load-more"
                 type="button"
-                disabled={isLoadingMore}
-                onClick={loadMoreComments}
+                disabled={commentsQuery.isFetchingNextPage}
+                onClick={() => commentsQuery.fetchNextPage()}
               >
-                {isLoadingMore ? '불러오는 중' : '댓글 더보기'}
+                {commentsQuery.isFetchingNextPage ? '불러오는 중' : '댓글 더보기'}
               </button>
             ) : null}
           </>
         ) : null}
-        {!isLoading && !comments.length ? (
+        {!commentsQuery.isPending && !comments.length ? (
           <div className="article-empty-comments">
             <div className="article-empty-comments__icon" aria-hidden="true" />
             <p>아직 댓글이 없어요,<br />지금 댓글을 달아보세요!</p>

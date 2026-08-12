@@ -1,23 +1,18 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { forwardRef, useState } from 'react';
 
-export default function PasswordField({ id, value, onChange, onBlur, placeholder, autoComplete, hasError }) {
+const PasswordField = forwardRef(function PasswordField({ hasError, ...inputProps }, ref) {
   const [visible, setVisible] = useState(false);
 
   return (
     <div className="relative">
       <input
-        id={id}
+        {...inputProps}
+        ref={ref}
         className={`input-field pr-14 ${hasError ? 'input-field-error' : ''}`}
         type={visible ? 'text' : 'password'}
-        value={value}
-        onChange={onChange}
-        onBlur={onBlur}
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        required
       />
       <button
         type="button"
@@ -27,7 +22,7 @@ export default function PasswordField({ id, value, onChange, onBlur, placeholder
       >
         <Image
           className="h-6 w-6"
-          src={visible ? '/images/btn_visibility_off_24px.png' : '/images/btn_visibility_on_24px.png'}
+          src={visible ? '/images/btn_visibility_on_24px.png' : '/images/btn_visibility_off_24px.png'}
           width={24}
           height={24}
           alt=""
@@ -35,4 +30,6 @@ export default function PasswordField({ id, value, onChange, onBlur, placeholder
       </button>
     </div>
   );
-}
+});
+
+export default PasswordField;

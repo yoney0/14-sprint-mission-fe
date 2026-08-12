@@ -1,12 +1,15 @@
 'use client';
 
-import { useActionState, useMemo, useState } from 'react';
-import SubmitButton from './SubmitButton';
-import { createProductAction } from '@/app/(site)/registration/actions';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
+import useRequireAuth from '@/hooks/useRequireAuth';
+import { getApiErrorMessage } from '@/lib/api-client';
+import { imageApi, productApi } from '@/lib/panda-api';
+import { queryKeys } from '@/lib/query-keys';
 
 const initialValues = { name: '', description: '', price: '' };
-const initialActionState = { error: '' };
-const MAX_PRODUCT_IMAGE_SIZE = 2 * 1024 * 1024;
+const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024;
 
 const rules = {
   name: {
@@ -37,10 +40,13 @@ function readImageAsDataUrl(file) {
 }
 
 export default function ProductRegistrationForm() {
-  const [actionState, formAction] = useActionState(createProductAction, initialActionState);
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const auth = useRequireAuth();
   const [values, setValues] = useState(initialValues);
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
+  const [imageFile, setImageFile] = useState(null);
   const [imageDataUrl, setImageDataUrl] = useState('');
   const [imageName, setImageName] = useState('');
   const [imageError, setImageError] = useState('');
@@ -76,6 +82,23 @@ export default function ProductRegistrationForm() {
     tags: touched.tags ? validation.errors.tags : '',
   };
   const isSubmitDisabled = !validation.requiredFieldsFilled || !validation.isValid;
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const { url } = await imageApi.upload(imageFile);
+      return productApi.create({
+        name: values.name.trim(),
+        description: values.description.trim(),
+        price: Number(values.price),
+        tags,
+        images: [url],
+      });
+    },
+    onSuccess(product) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+      queryClient.setQueryData(queryKeys.products.detail(product.id), product);
+      router.push(`/items/${product.id}`);
+    },
+  });
 
   const updateField = (name) => (event) => {
     setValues((current) => ({ ...current, [name]: event.target.value }));
@@ -89,6 +112,7 @@ export default function ProductRegistrationForm() {
     setImageError('');
 
     if (!file) {
+      setImageFile(null);
       setImageDataUrl('');
       setImageName('');
       return;
@@ -99,15 +123,17 @@ export default function ProductRegistrationForm() {
       return;
     }
     if (file.size > MAX_PRODUCT_IMAGE_SIZE) {
-      setImageError('이미지는 2MB 이하로 등록해주세요.');
+      setImageError('이미지는 5MB 이하로 등록해주세요.');
       event.target.value = '';
       return;
     }
 
     try {
       setImageDataUrl(await readImageAsDataUrl(file));
+      setImageFile(file);
       setImageName(file.name);
     } catch (error) {
+      setImageFile(null);
       setImageDataUrl('');
       setImageName('');
       setImageError(error.message);
@@ -129,15 +155,27 @@ export default function ProductRegistrationForm() {
     addTag();
   }
 
+  if (auth.isCheckingAuth) return <div className="product-detail-state"><span className="loading-spinner" /> 로그인 상태를 확인하고 있습니다.</div>;
+  if (!auth.isAuthenticated) return <div className="product-detail-state">로그인 페이지로 이동하고 있습니다.</div>;
+
   return (
-    <form className="registration-form" action={formAction} noValidate>
+    <form
+      className="registration-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        setTouched({ name: true, description: true, price: true, tags: true });
+        if (!isSubmitDisabled && imageFile) createMutation.mutate();
+      }}
+      noValidate
+    >
       <div className="registration-title-row">
         <h1>상품 등록하기</h1>
-        <SubmitButton className="registration-submit-button" disabled={isSubmitDisabled}>등록</SubmitButton>
+        <button
+          className="registration-submit-button"
+          type="submit"
+          disabled={isSubmitDisabled || !imageFile || createMutation.isPending}
+        >{createMutation.isPending ? '등록 중' : '등록'}</button>
       </div>
-
-      <input type="hidden" name="image" value={imageDataUrl} />
-      {tags.map((tag) => <input key={tag} type="hidden" name="tags" value={tag} />)}
 
       <div className="registration-field">
         <span className="registration-label">상품 이미지</span>
@@ -156,6 +194,7 @@ export default function ProductRegistrationForm() {
               className="registration-image-remove"
               type="button"
               onClick={() => {
+                setImageFile(null);
                 setImageDataUrl('');
                 setImageName('');
                 setImageError('');
@@ -244,7 +283,11 @@ export default function ProductRegistrationForm() {
         </div>
       </div>
 
-      {actionState.error ? <p className="registration-submit-error">{actionState.error}</p> : null}
+      {createMutation.isError ? (
+        <p className="registration-submit-error">
+          {getApiErrorMessage(createMutation.error, '상품 등록에 실패했습니다.')}
+        </p>
+      ) : null}
     </form>
   );
 }
