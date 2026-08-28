@@ -1,4 +1,5 @@
 import ItemsClient from '@/components/ItemsClient';
+import { Suspense } from 'react';
 
 export const metadata = {
   title: '중고마켓',
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function ItemsPage() {
-  return <ItemsClient />;
+  return (
+    <Suspense fallback={<main className="market-main"><p className="market-product-status">상품을 불러오는 중입니다.</p></main>}>
+      <ItemsClient />
+    </Suspense>
+  );
 }

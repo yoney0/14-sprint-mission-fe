@@ -49,7 +49,7 @@ function BestArticleCard({ article }) {
         <SafeImage src={article.image} alt="" />
       </div>
       <div className="board-article-meta">
-        <span>총명한판다</span>
+        <span>{article.writer?.nickname || '판다마켓 사용자'}</span>
         <span aria-label={`좋아요 ${formatLikeCount(article.likeCount)}개`}>♡ {formatLikeCount(article.likeCount)}</span>
         <time>{formatDate(article.createdAt)}</time>
       </div>
@@ -64,7 +64,7 @@ function ArticleRow({ article }) {
         <h3>{article.title}</h3>
         <div className="board-article-meta">
           <span className="board-avatar" aria-hidden="true" />
-          <span>총명한 판다</span>
+          <span>{article.writer?.nickname || '판다마켓 사용자'}</span>
           <time>{formatDate(article.createdAt)}</time>
         </div>
       </div>
@@ -114,8 +114,8 @@ export default function ArticleBoard({
   const [deleteNotice, setDeleteNotice] = useState(initialNotice);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const bestArticlesQuery = useQuery({
-    queryKey: queryKeys.articles.list({ page: 1, pageSize: 3, orderBy: 'recent', best: true }),
-    queryFn: () => getArticleList({ page: 1, pageSize: 3, orderBy: 'recent' }),
+    queryKey: queryKeys.articles.list({ page: 1, pageSize: 3, orderBy: 'like', best: true }),
+    queryFn: () => getArticleList({ page: 1, pageSize: 3, orderBy: 'like' }),
     staleTime: 60_000,
   });
   const articleFilters = useMemo(

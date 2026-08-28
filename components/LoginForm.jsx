@@ -10,18 +10,19 @@ import FormField from './FormField';
 import MessageModal from './MessageModal';
 import PasswordField from './PasswordField';
 import useRedirectAuthenticated from '@/hooks/useRedirectAuthenticated';
-import { getApiErrorMessage } from '@/lib/api-client';
-import { saveAuthTokens } from '@/lib/auth-storage';
+import { API_BASE_URL, getApiErrorMessage } from '@/lib/api-client';
+import { getSafeNextPath, saveAuthNextPath, saveAuthTokens } from '@/lib/auth-storage';
 import { authApi } from '@/lib/panda-api';
-import { queryKeys } from '@/lib/query-keys';
+import { invalidateViewerScopedQueries, queryKeys } from '@/lib/query-keys';
 
 const EMAIL_ERROR = '이메일을 확인해 주세요.';
 const PASSWORD_ERROR = '비밀번호를 확인해 주세요.';
 
-export default function LoginForm() {
+export default function LoginForm({ next = '' }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const checkingAuth = useRedirectAuthenticated();
+  const nextPath = getSafeNextPath(next);
+  const checkingAuth = useRedirectAuthenticated(nextPath);
   const [modalMessage, setModalMessage] = useState('');
   const {
     register,
@@ -34,7 +35,8 @@ export default function LoginForm() {
     onSuccess(data) {
       saveAuthTokens(data);
       queryClient.setQueryData(queryKeys.user, data.user);
-      router.replace('/items');
+      invalidateViewerScopedQueries(queryClient);
+      router.replace(nextPath);
     },
     onError(error) {
       setError('email', { type: 'server', message: EMAIL_ERROR });
@@ -85,17 +87,18 @@ export default function LoginForm() {
       <section className="mt-6 flex items-center justify-between rounded-lg bg-primary-50 px-6 py-4">
         <p className="font-medium text-gray-800">간편 로그인</p>
         <div className="flex gap-4">
-          <a href="https://www.google.com/" target="_blank" rel="noreferrer" aria-label="Google">
+          <a
+            href={`${API_BASE_URL}/auth/google?next=${encodeURIComponent('/oauth/callback')}`}
+            aria-label="Google로 로그인"
+            onClick={() => saveAuthNextPath(nextPath)}
+          >
             <Image className="h-11 w-11" src="/images/Component%202%403x.png" width={43} height={43} alt="" unoptimized />
-          </a>
-          <a href="https://www.kakaocorp.com/page" target="_blank" rel="noreferrer" aria-label="Kakao">
-            <Image className="h-11 w-11" src="/images/Component%203%403x.png" width={42} height={42} alt="" unoptimized />
           </a>
         </div>
       </section>
 
       <p className="mt-6 text-center text-sm font-medium text-gray-800">
-        판다마켓이 처음이신가요? <Link className="text-primary underline" href="/signup">회원 가입하기</Link>
+        판다마켓이 처음이신가요? <Link className="text-primary underline" href={`/signup?next=${encodeURIComponent(nextPath)}`}>회원 가입하기</Link>
       </p>
 
       <MessageModal message={modalMessage} onClose={() => setModalMessage('')} />

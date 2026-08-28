@@ -1,20 +1,20 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { useEffect, useSyncExternalStore } from 'react';
-import { clearAuthTokens, getAccessToken, subscribeAuth } from '@/lib/auth-storage';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { clearAuthTokens, subscribeAuth } from '@/lib/auth-storage';
 import { userApi } from '@/lib/panda-api';
-import { queryKeys } from '@/lib/query-keys';
+import { invalidateViewerScopedQueries, queryKeys } from '@/lib/query-keys';
 import useHydrated from './useHydrated';
 
 export default function useCurrentUser() {
-  const token = useSyncExternalStore(subscribeAuth, getAccessToken, () => '');
+  const queryClient = useQueryClient();
   const isHydrated = useHydrated();
 
   const query = useQuery({
     queryKey: queryKeys.user,
     queryFn: userApi.getMe,
-    enabled: Boolean(token),
+    enabled: isHydrated,
     staleTime: 5 * 60_000,
     retry: false,
   });
@@ -22,13 +22,19 @@ export default function useCurrentUser() {
   useEffect(() => {
     if (query.error?.response?.status === 401) {
       clearAuthTokens();
+      queryClient.setQueryData(queryKeys.user, null);
+      invalidateViewerScopedQueries(queryClient);
     }
-  }, [query.error]);
+  }, [query.error, queryClient]);
+
+  const { refetch } = query;
+  useEffect(() => subscribeAuth(() => {
+    void refetch();
+  }), [refetch]);
 
   return {
     ...query,
-    token,
-    isCheckingAuth: !isHydrated,
-    isAuthenticated: Boolean(token),
+    isCheckingAuth: !isHydrated || query.isPending,
+    isAuthenticated: Boolean(query.data) && query.error?.response?.status !== 401,
   };
 }

@@ -11,7 +11,8 @@ export default function useRequireAuth() {
 
   useEffect(() => {
     if (!auth.isCheckingAuth && !auth.isAuthenticated) {
-      router.replace(`/signin?next=${encodeURIComponent(pathname)}`);
+      const nextPath = `${pathname}${window.location.search}`;
+      router.replace(`/signin?next=${encodeURIComponent(nextPath)}`);
     }
   }, [auth.isAuthenticated, auth.isCheckingAuth, pathname, router]);
 

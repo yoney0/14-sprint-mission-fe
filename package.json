@@ -1,33 +1,52 @@
 {
-  "name": "sprint-mission-06",
+  "name": "sprint-mission-09",
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0"
+  },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node server/index.js",
+    "build": "prisma generate && next build",
+    "start": "NODE_ENV=production node server/index.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "db:migrate": "node server/db/migrate.js",
+    "postinstall": "prisma generate",
+    "test": "node --test server/tests/*.test.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
     "db:seed": "node server/db/seed.js"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.0",
     "@tanstack/react-query": "^5.101.4",
     "axios": "^1.19.0",
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
     "dotenv": "^17.4.2",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.6.2",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
     "lucide-react": "^1.31.0",
+    "multer": "^2.0.2",
     "next": "^16.0.0",
-    "pg": "^8.22.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-hook-form": "^7.85.0"
+    "react-hook-form": "^7.85.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.0.0",
     "postcss": "^8.5.25",
+    "prisma": "^6.19.0",
     "tailwindcss": "^3.4.17"
   },
   "overrides": {

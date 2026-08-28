@@ -7,7 +7,9 @@ import { useState } from 'react';
 const DEFAULT_FALLBACK = '/images/Img_home_01.png';
 
 export default function SafeImage({ src, fallback = DEFAULT_FALLBACK, alt = '', ...props }) {
-  const [currentSrc, setCurrentSrc] = useState(src || fallback);
+  const requestedSrc = src || fallback;
+  const [failedSrc, setFailedSrc] = useState('');
+  const currentSrc = failedSrc === requestedSrc ? fallback : requestedSrc;
 
   return (
     <img
@@ -15,9 +17,7 @@ export default function SafeImage({ src, fallback = DEFAULT_FALLBACK, alt = '', 
       src={currentSrc}
       alt={alt}
       onError={() => {
-        if (currentSrc !== fallback) {
-          setCurrentSrc(fallback);
-        }
+        if (requestedSrc !== fallback) setFailedSrc(requestedSrc);
       }}
     />
   );

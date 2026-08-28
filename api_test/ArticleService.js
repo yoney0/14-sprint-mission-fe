@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseURL = 'https://panda-market-api-crud.vercel.app';
+const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
 const articleApi = axios.create({
   baseURL,
@@ -50,23 +50,23 @@ export function getArticle(articleId) {
     .catch(handleArticleError);
 }
 
-export function createArticle({ title, content, image }) {
+export function createArticle({ title, content, image, images = image ? [image] : [] }) {
   return articleApi
     .post('/articles', {
       title,
       content,
-      image,
+      images,
     })
     .then(handleArticleRes)
     .catch(handleArticleError);
 }
 
-export function patchArticle(articleId, { title, content, image }) {
+export function patchArticle(articleId, { title, content, image, images = image ? [image] : [] }) {
   return articleApi
     .patch(`/articles/${articleId}`, {
       title,
       content,
-      image,
+      images,
     })
     .then(handleArticleRes)
     .catch(handleArticleError);

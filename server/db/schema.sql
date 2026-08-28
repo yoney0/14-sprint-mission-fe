@@ -1,3 +1,10 @@
+-- Legacy Sprint 06-08 baseline only.
+-- Sprint 09 schema changes are canonical in prisma/schema.prisma and
+-- prisma/migrations/20260827080000_sprint_08_baseline/migration.sql and
+-- prisma/migrations/20260828090000_sprint_mission_09/migration.sql and
+-- prisma/migrations/20260828120000_auth_identity_hardening/migration.sql.
+-- Use `npm run db:migrate`; do not apply this file to a migrated database.
+
 CREATE TABLE IF NOT EXISTS products (
   id SERIAL PRIMARY KEY,
   name VARCHAR(10) NOT NULL CHECK (char_length(trim(name)) >= 1),

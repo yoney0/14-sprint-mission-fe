@@ -1,13 +1,18 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Heart } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ArticleComments from './ArticleComments';
 import AlertModal from './AlertModal';
+import MessageModal from './MessageModal';
+import SafeImage from './SafeImage';
+import useCurrentUser from '@/hooks/useCurrentUser';
 import { deleteArticle, getArticle } from '@/lib/client-api';
 import { getApiErrorMessage } from '@/lib/api-client';
+import { articleApi } from '@/lib/panda-api';
 import { queryKeys } from '@/lib/query-keys';
 
 function formatDate(value) {
@@ -19,11 +24,17 @@ function formatDate(value) {
   });
 }
 
+function hasSameId(left, right) {
+  return left != null && right != null && String(left) === String(right);
+}
+
 export default function ArticleDetailView({ articleId }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const auth = useCurrentUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [message, setMessage] = useState('');
   const articleQuery = useQuery({
     queryKey: queryKeys.articles.detail(articleId),
     queryFn: () => getArticle(articleId),
@@ -36,8 +47,34 @@ export default function ArticleDetailView({ articleId }) {
       queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
       router.push('/free-board?notice=deleted');
     },
+    onError(error) {
+      setMessage(getApiErrorMessage(error, '게시글 삭제에 실패했습니다.'));
+    },
   });
   const article = articleQuery.data;
+  const isOwner = hasSameId(auth.data?.id, article?.ownerId);
+  const likeMutation = useMutation({
+    mutationFn: () => article.isLiked ? articleApi.unlike(articleId) : articleApi.like(articleId),
+    onMutate: async () => {
+      const articleKey = queryKeys.articles.detail(articleId);
+      await queryClient.cancelQueries({ queryKey: articleKey });
+      const previous = queryClient.getQueryData(articleKey);
+      queryClient.setQueryData(articleKey, (current) => current ? {
+        ...current,
+        isLiked: !current.isLiked,
+        likeCount: Math.max(0, current.likeCount + (current.isLiked ? -1 : 1)),
+      } : current);
+      return { previous };
+    },
+    onError(error, _values, context) {
+      queryClient.setQueryData(queryKeys.articles.detail(articleId), context?.previous);
+      setMessage(getApiErrorMessage(error, '좋아요 상태를 변경하지 못했습니다.'));
+    },
+    onSettled() {
+      queryClient.invalidateQueries({ queryKey: queryKeys.articles.detail(articleId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
+    },
+  });
   const error = articleQuery.isError
     ? getApiErrorMessage(articleQuery.error, '게시글을 불러오지 못했습니다.')
     : deleteMutation.isError
@@ -52,7 +89,7 @@ export default function ArticleDetailView({ articleId }) {
       {article ? (
         <>
           <article className="article-detail">
-            <div className="article-menu-wrap article-menu-wrap--top">
+            {isOwner ? <div className="article-menu-wrap article-menu-wrap--top">
               <button
                 type="button"
                 className="article-more-button"
@@ -76,20 +113,44 @@ export default function ArticleDetailView({ articleId }) {
                   </button>
                 </div>
               ) : null}
-            </div>
+            </div> : null}
             <h1>{article.title}</h1>
             <div className="article-detail-meta">
               <span className="board-avatar" aria-hidden="true" />
-              <span>총명한판다</span>
+              <span>{article.writer?.nickname || '판다마켓 사용자'}</span>
               <time>{formatDate(article.createdAt)}</time>
-              <span className="article-like" aria-label={`좋아요 ${article.likeCount || 0}개`}>
-                ♡ {Number(article.likeCount || 0).toLocaleString('ko-KR')}
-              </span>
+              <button
+                type="button"
+                className={`article-like article-like-button ${article.isLiked ? 'is-active' : ''}`}
+                aria-label={`좋아요 ${article.likeCount || 0}개`}
+                aria-pressed={Boolean(article.isLiked)}
+                disabled={likeMutation.isPending}
+                onClick={() => {
+                  if (!auth.isAuthenticated) {
+                    router.push(`/signin?next=${encodeURIComponent(`/free-board/${articleId}`)}`);
+                    return;
+                  }
+                  likeMutation.mutate();
+                }}
+              >
+                <Heart size={18} fill={article.isLiked ? 'currentColor' : 'none'} />
+                {Number(article.likeCount || 0).toLocaleString('ko-KR')}
+              </button>
             </div>
             <p>{article.content}</p>
+            {article.images?.length ? (
+              <div className="article-detail-images">
+                {article.images.map((image, index) => <SafeImage key={image} src={image} alt={`게시글 이미지 ${index + 1}`} />)}
+              </div>
+            ) : null}
           </article>
 
-          <ArticleComments articleId={articleId} />
+          <ArticleComments
+            articleId={articleId}
+            currentUser={auth.data}
+            isAuthenticated={auth.isAuthenticated}
+            initialComments={article.comments}
+          />
         </>
       ) : null}
 
@@ -107,6 +168,7 @@ export default function ArticleDetailView({ articleId }) {
         onCancel={() => setIsDeleteModalOpen(false)}
         onConfirm={() => deleteMutation.mutate()}
       />
+      <MessageModal message={message} onClose={() => setMessage('')} />
     </main>
   );
 }

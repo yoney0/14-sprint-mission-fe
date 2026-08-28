@@ -9,7 +9,6 @@ export default defineConfig([
     'node_modules/**',
     'src/**',
     'legacy/**',
-    'server/**',
     'api_test/**',
     'next-env.d.ts',
   ]),

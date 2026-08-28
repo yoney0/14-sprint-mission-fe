@@ -1,18 +1,17 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useSyncExternalStore } from 'react';
-import { getAccessToken, subscribeAuth } from '@/lib/auth-storage';
-import useHydrated from './useHydrated';
+import { useEffect } from 'react';
+import useCurrentUser from './useCurrentUser';
+import { getSafeNextPath } from '@/lib/auth-storage';
 
-export default function useRedirectAuthenticated() {
+export default function useRedirectAuthenticated(nextPath = '/items') {
   const router = useRouter();
-  const token = useSyncExternalStore(subscribeAuth, getAccessToken, () => '');
-  const isHydrated = useHydrated();
+  const auth = useCurrentUser();
 
   useEffect(() => {
-    if (token) router.replace('/items');
-  }, [router, token]);
+    if (auth.isAuthenticated) router.replace(getSafeNextPath(nextPath));
+  }, [auth.isAuthenticated, nextPath, router]);
 
-  return !isHydrated || Boolean(token);
+  return auth.isCheckingAuth || auth.isAuthenticated;
 }

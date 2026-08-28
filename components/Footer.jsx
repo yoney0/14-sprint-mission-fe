@@ -17,7 +17,7 @@ export default function Footer() {
             <Link href="/policy">Privacy Policy</Link>
             <Link href="/faq">FAQ</Link>
           </nav>
-          <p className="footer-copy">©codeit - 2024</p>
+          <p className="footer-copy">©codeit - 2026</p>
         </div>
         <div className="footer-socials">
           {socialLinks.map(([href, src, label]) => (
@@ -26,7 +26,7 @@ export default function Footer() {
             </a>
           ))}
         </div>
-        <p className="footer-copy footer-copy--desktop">©codeit - 2024</p>
+        <p className="footer-copy footer-copy--desktop">©codeit - 2026</p>
         <nav className="footer-links footer-links--desktop" aria-label="도움말 데스크톱">
           <Link href="/policy">Privacy Policy</Link>
           <Link href="/faq">FAQ</Link>

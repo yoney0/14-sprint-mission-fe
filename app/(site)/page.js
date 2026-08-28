@@ -65,7 +65,7 @@ function FeatureSection({ feature }) {
 
 export default function HomePage() {
   return (
-    <main className="pt-[4.375rem]">
+    <main>
       <section className="home-hero">
         <div className="home-hero__inner">
           <div className="home-hero__text">

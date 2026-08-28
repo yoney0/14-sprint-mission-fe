@@ -1,20 +1,15 @@
-import 'dotenv/config';
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
-import { pool } from '../config/db.js';
+import { spawn } from 'node:child_process';
+import path from 'node:path';
 
-const currentDir = dirname(fileURLToPath(import.meta.url));
+const executable = process.platform === 'win32' ? 'prisma.cmd' : 'prisma';
+const prismaBinary = path.join(process.cwd(), 'node_modules', '.bin', executable);
+const child = spawn(prismaBinary, ['migrate', 'deploy'], { stdio: 'inherit' });
 
-async function migrate() {
-  const schemaSql = await readFile(join(currentDir, 'schema.sql'), 'utf8');
-  await pool.query(schemaSql);
-  await pool.end();
-  console.log('Migration completed');
-}
+child.on('error', (error) => {
+  console.error('Prisma CLI를 실행하지 못했습니다. 먼저 npm install을 실행하세요.', error.message);
+  process.exitCode = 1;
+});
 
-migrate().catch(async (error) => {
-  console.error(error);
-  await pool.end();
-  process.exit(1);
+child.on('exit', (code) => {
+  process.exitCode = code ?? 1;
 });

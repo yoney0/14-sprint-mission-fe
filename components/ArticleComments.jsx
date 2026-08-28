@@ -1,6 +1,7 @@
 'use client';
 
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
   createArticleComment,
@@ -27,6 +28,7 @@ function CommentItem({
   isMenuOpen,
   isEditing,
   isBusy,
+  canManage,
   onToggleMenu,
   onStartEdit,
   onCancelEdit,
@@ -49,6 +51,7 @@ function CommentItem({
             value={editValue}
             onChange={(event) => setEditValue(event.target.value)}
             aria-label="댓글 수정 내용"
+            maxLength={1000}
             autoFocus
           />
           <div className="article-comment-edit-actions">
@@ -60,7 +63,7 @@ function CommentItem({
         </form>
       ) : (
         <>
-          <div className="article-menu-wrap">
+          {canManage ? <div className="article-menu-wrap">
             <button
               type="button"
               className="article-more-button"
@@ -74,20 +77,24 @@ function CommentItem({
                 <button type="button" role="menuitem" onClick={onDelete} disabled={isBusy}>삭제하기</button>
               </div>
             ) : null}
-          </div>
+          </div> : null}
           <p>{comment.content}</p>
         </>
       )}
       <div className="article-comment-meta">
         <span className="board-avatar" aria-hidden="true" />
-        <span>똑똑한판다</span>
+        <span>{comment.writer?.nickname || '판다마켓 사용자'}</span>
         <time>{formatDate(comment.createdAt)}</time>
       </div>
     </article>
   );
 }
 
-export default function ArticleComments({ articleId }) {
+function hasSameId(left, right) {
+  return left != null && right != null && String(left) === String(right);
+}
+
+export default function ArticleComments({ articleId, currentUser, isAuthenticated, initialComments = [] }) {
   const queryClient = useQueryClient();
   const [commentValue, setCommentValue] = useState('');
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -100,6 +107,10 @@ export default function ArticleComments({ articleId }) {
     queryFn: ({ pageParam }) => getArticleComments(articleId, { cursor: pageParam, pageSize: 3 }),
     initialPageParam: '',
     getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+    placeholderData: initialComments.length ? {
+      pages: [{ list: initialComments, nextCursor: null }],
+      pageParams: [''],
+    } : undefined,
     staleTime: 30_000,
   });
   const comments = useMemo(
@@ -162,16 +173,21 @@ export default function ArticleComments({ articleId }) {
     <>
       <section className="article-comment-section" aria-labelledby="comment-title">
         <h2 id="comment-title">댓글달기</h2>
-        <form className="article-comment-form" onSubmit={submitComment}>
-          <textarea
-            value={commentValue}
-            onChange={(event) => setCommentValue(event.target.value)}
-            placeholder="댓글을 입력해주세요."
-          />
-          <button type="submit" disabled={isSubmitDisabled}>
-            {createMutation.isPending ? '등록 중' : '등록'}
-          </button>
-        </form>
+        {isAuthenticated ? (
+          <form className="article-comment-form" onSubmit={submitComment}>
+            <textarea
+              value={commentValue}
+              onChange={(event) => setCommentValue(event.target.value)}
+              placeholder="댓글을 입력해주세요."
+              maxLength={1000}
+            />
+            <button type="submit" disabled={isSubmitDisabled}>
+              {createMutation.isPending ? '등록 중' : '등록'}
+            </button>
+          </form>
+        ) : (
+          <p className="article-comment-login"><Link href={`/signin?next=${encodeURIComponent(`/free-board/${articleId}`)}`}>로그인</Link> 후 댓글을 작성할 수 있습니다.</p>
+        )}
         {error ? <p className="article-submit-error" role="alert">{error}</p> : null}
       </section>
 
@@ -186,6 +202,7 @@ export default function ArticleComments({ articleId }) {
                 isMenuOpen={openMenuId === comment.id}
                 isEditing={editingId === comment.id}
                 isBusy={busyId === comment.id}
+                canManage={hasSameId(currentUser?.id, comment.writer?.id)}
                 onToggleMenu={() => setOpenMenuId((current) => current === comment.id ? null : comment.id)}
                 onStartEdit={() => {
                   setEditingId(comment.id);

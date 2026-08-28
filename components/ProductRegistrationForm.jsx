@@ -3,41 +3,32 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import ImagePicker, { resolveImageItemUrls } from './ImagePicker';
 import useRequireAuth from '@/hooks/useRequireAuth';
 import { getApiErrorMessage } from '@/lib/api-client';
-import { imageApi, productApi } from '@/lib/panda-api';
+import { productApi } from '@/lib/panda-api';
 import { queryKeys } from '@/lib/query-keys';
 
 const initialValues = { name: '', description: '', price: '' };
-const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024;
 
 const rules = {
   name: {
-    isValid: (value) => value.trim().length >= 1 && value.trim().length <= 10,
-    message: '10자 이내로 입력해주세요',
+    isValid: (value) => value.trim().length >= 1 && value.trim().length <= 30,
+    message: '30자 이내로 입력해주세요',
   },
   description: {
-    isValid: (value) => value.trim().length >= 10 && value.trim().length <= 100,
-    message: '10자 이상 100자 이내로 입력해주세요',
+    isValid: (value) => value.trim().length >= 10 && value.trim().length <= 1000,
+    message: '10자 이상 1,000자 이내로 입력해주세요',
   },
   price: {
     isValid: (value) => value.trim().length >= 1 && /^\d+$/.test(value.trim()),
     message: '숫자로 입력해주세요',
   },
   tag: {
-    isValid: (value) => value.trim().length >= 1 && value.trim().length <= 5,
-    message: '5글자 이내로 입력해주세요',
+    isValid: (value) => value.trim().length >= 1 && value.trim().length <= 20,
+    message: '20글자 이내로 입력해주세요',
   },
 };
-
-function readImageAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener('load', () => resolve(reader.result));
-    reader.addEventListener('error', () => reject(new Error('이미지를 읽지 못했습니다.')));
-    reader.readAsDataURL(file);
-  });
-}
 
 export default function ProductRegistrationForm() {
   const router = useRouter();
@@ -46,10 +37,7 @@ export default function ProductRegistrationForm() {
   const [values, setValues] = useState(initialValues);
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
-  const [imageFile, setImageFile] = useState(null);
-  const [imageDataUrl, setImageDataUrl] = useState('');
-  const [imageName, setImageName] = useState('');
-  const [imageError, setImageError] = useState('');
+  const [imageItems, setImageItems] = useState([]);
   const [touched, setTouched] = useState({});
 
   const validation = useMemo(() => {
@@ -60,7 +48,9 @@ export default function ProductRegistrationForm() {
         : '',
       price: values.price.trim() && !rules.price.isValid(values.price) ? rules.price.message : '',
       tagInput: tagInput.trim() && !rules.tag.isValid(tagInput) ? rules.tag.message : '',
-      tags: tags.length ? '' : '태그를 1개 이상 입력해주세요',
+      tags: !tags.length
+        ? '태그를 1개 이상 입력해주세요'
+        : tags.length > 10 ? '태그는 최대 10개까지 입력해주세요' : '',
     };
     const requiredFieldsFilled = Boolean(
       values.name.trim() && values.description.trim() && values.price.trim() && tags.length,
@@ -69,7 +59,8 @@ export default function ProductRegistrationForm() {
       && rules.name.isValid(values.name)
       && rules.description.isValid(values.description)
       && rules.price.isValid(values.price)
-      && !errors.tagInput;
+      && !errors.tagInput
+      && tags.length <= 10;
 
     return { errors, requiredFieldsFilled, isValid };
   }, [tagInput, tags.length, values]);
@@ -84,19 +75,19 @@ export default function ProductRegistrationForm() {
   const isSubmitDisabled = !validation.requiredFieldsFilled || !validation.isValid;
   const createMutation = useMutation({
     mutationFn: async () => {
-      const { url } = await imageApi.upload(imageFile);
+      const images = await resolveImageItemUrls(imageItems);
       return productApi.create({
         name: values.name.trim(),
         description: values.description.trim(),
         price: Number(values.price),
         tags,
-        images: [url],
+        images,
       });
     },
     onSuccess(product) {
       queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
       queryClient.setQueryData(queryKeys.products.detail(product.id), product);
-      router.push(`/items/${product.id}`);
+      router.push('/items');
     },
   });
 
@@ -107,43 +98,10 @@ export default function ProductRegistrationForm() {
     setTouched((current) => ({ ...current, [name]: true }));
   };
 
-  async function updateImage(event) {
-    const file = event.target.files?.[0];
-    setImageError('');
-
-    if (!file) {
-      setImageFile(null);
-      setImageDataUrl('');
-      setImageName('');
-      return;
-    }
-    if (!file.type.startsWith('image/')) {
-      setImageError('이미지 파일만 등록할 수 있습니다.');
-      event.target.value = '';
-      return;
-    }
-    if (file.size > MAX_PRODUCT_IMAGE_SIZE) {
-      setImageError('이미지는 5MB 이하로 등록해주세요.');
-      event.target.value = '';
-      return;
-    }
-
-    try {
-      setImageDataUrl(await readImageAsDataUrl(file));
-      setImageFile(file);
-      setImageName(file.name);
-    } catch (error) {
-      setImageFile(null);
-      setImageDataUrl('');
-      setImageName('');
-      setImageError(error.message);
-    }
-  }
-
   function addTag() {
     const nextTag = tagInput.trim();
     setTouched((current) => ({ ...current, tagInput: true, tags: true }));
-    if (!rules.tag.isValid(nextTag) || tags.includes(nextTag)) return;
+    if (!rules.tag.isValid(nextTag) || tags.includes(nextTag) || tags.length >= 10) return;
     setTags((current) => [...current, nextTag]);
     setTagInput('');
     setTouched((current) => ({ ...current, tagInput: false, tags: true }));
@@ -155,7 +113,7 @@ export default function ProductRegistrationForm() {
     addTag();
   }
 
-  if (auth.isCheckingAuth) return <div className="product-detail-state"><span className="loading-spinner" /> 로그인 상태를 확인하고 있습니다.</div>;
+  if (auth.isCheckingAuth || (auth.isAuthenticated && auth.isPending)) return <div className="product-detail-state"><span className="loading-spinner" /> 로그인 상태를 확인하고 있습니다.</div>;
   if (!auth.isAuthenticated) return <div className="product-detail-state">로그인 페이지로 이동하고 있습니다.</div>;
 
   return (
@@ -164,7 +122,7 @@ export default function ProductRegistrationForm() {
       onSubmit={(event) => {
         event.preventDefault();
         setTouched({ name: true, description: true, price: true, tags: true });
-        if (!isSubmitDisabled && imageFile) createMutation.mutate();
+        if (!isSubmitDisabled) createMutation.mutate();
       }}
       noValidate
     >
@@ -173,37 +131,18 @@ export default function ProductRegistrationForm() {
         <button
           className="registration-submit-button"
           type="submit"
-          disabled={isSubmitDisabled || !imageFile || createMutation.isPending}
+          disabled={isSubmitDisabled || createMutation.isPending}
         >{createMutation.isPending ? '등록 중' : '등록'}</button>
       </div>
 
       <div className="registration-field">
         <span className="registration-label">상품 이미지</span>
-        <div className="registration-image-row">
-          <label className={`registration-image-upload ${imageDataUrl ? 'has-image' : ''}`}>
-            {imageDataUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={imageDataUrl} alt="등록할 상품 이미지 미리보기" />
-            ) : (
-              <><span className="registration-image-upload__plus" aria-hidden="true">+</span><span>이미지 등록</span></>
-            )}
-            <input type="file" accept="image/*" onChange={updateImage} />
-          </label>
-          {imageDataUrl ? (
-            <button
-              className="registration-image-remove"
-              type="button"
-              onClick={() => {
-                setImageFile(null);
-                setImageDataUrl('');
-                setImageName('');
-                setImageError('');
-              }}
-            >이미지 삭제</button>
-          ) : null}
-        </div>
-        {imageName ? <span className="registration-image-name">{imageName}</span> : null}
-        {imageError ? <span className="registration-error">{imageError}</span> : null}
+        <ImagePicker
+          items={imageItems}
+          onChange={setImageItems}
+          disabled={createMutation.isPending}
+          label="상품 이미지"
+        />
       </div>
 
       <label className="registration-field">
@@ -216,7 +155,7 @@ export default function ProductRegistrationForm() {
           onChange={updateField('name')}
           onBlur={touchField('name')}
           placeholder="상품명을 입력해주세요"
-          maxLength={10}
+          maxLength={30}
         />
         {visibleErrors.name ? <span className="registration-error">{visibleErrors.name}</span> : null}
       </label>
@@ -230,7 +169,7 @@ export default function ProductRegistrationForm() {
           onChange={updateField('description')}
           onBlur={touchField('description')}
           placeholder="상품 소개를 입력해주세요"
-          maxLength={100}
+          maxLength={1000}
         />
         {visibleErrors.description ? <span className="registration-error">{visibleErrors.description}</span> : null}
       </label>
@@ -261,6 +200,7 @@ export default function ProductRegistrationForm() {
           onBlur={touchField('tagInput')}
           onKeyDown={handleTagKeyDown}
           placeholder="태그를 입력하고 Enter를 눌러주세요"
+          maxLength={20}
         />
         {visibleErrors.tagInput ? <span className="registration-error">{visibleErrors.tagInput}</span> : null}
         {!visibleErrors.tagInput && visibleErrors.tags

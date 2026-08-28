@@ -1,7 +1,7 @@
 export default function FormField({ id, label, error, children }) {
   return (
-    <div className="flex flex-col gap-3">
-      <label className="text-lg font-bold leading-7 text-gray-800" htmlFor={id}>
+    <div className="auth-form-field flex flex-col gap-3">
+      <label className="auth-form-label text-lg font-bold leading-7 text-gray-800" htmlFor={id}>
         {label}
       </label>
       {children}
